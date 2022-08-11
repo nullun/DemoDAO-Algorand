@@ -20,6 +20,8 @@ Once deployed, the initialisation process is triggered by specifying an existing
 
 The DAO is now live. Meaning anyone who holds a non-zero amount of the native token for the DAO can interact with it. This includes proposing new functionality, voting on existing proposals, or invoking the functionality of the DAO.
 
+![DemoDAO Sequence Diagram](/Mermaid/DemoDAO_Sequence_Diagram.jpeg?raw=true "DemoDAO Sequence Diagram")
+
 # Proposing
 
 One of the most interesting aspects of this DAO design is the ability to extend the functionality of the DAO. This requires smart contract developers to implement what they want the DAO to do in a new smart contract that contains certain methods. Examples of functionality include; opting into or sending assets, calling other applications, and even creating groups of transactions that trade or buy NFTs on existing market places. The author would then deploy a copy of the smart contract along with calling the "proposal" method of the DAO and a vote will begin on whether or not the members of the DAO want it.
