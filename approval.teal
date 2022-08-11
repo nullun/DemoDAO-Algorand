@@ -1,0 +1,434 @@
+#pragma version 6
+
+method "invoke(application)bool"
+txna ApplicationArgs 0
+==
+bnz method_invoke
+
+method "propose(appl)uint64"
+txna ApplicationArgs 0
+==
+bnz method_propose
+
+method "vote(application,asset,uint64)bool"
+txna ApplicationArgs 0
+==
+bnz method_vote
+
+method "activate(application)uint64"
+txna ApplicationArgs 0
+==
+bnz method_activate
+
+method "destroy()bool"
+txna ApplicationArgs 0
+==
+bnz method_destroy
+
+method "initialise(asset)bool"
+txna ApplicationArgs 0
+==
+bnz method_initialise
+
+method "deploy(string)bool"
+txna ApplicationArgs 0
+==
+bnz method_deploy
+
+err
+
+/////////////
+// Methods //
+/////////////
+
+// Invoke
+method_invoke:
+	// Must contain an application ID
+	txn ApplicationID
+	assert
+
+	// Functionality Application
+	txna ApplicationArgs 1
+	btoi
+	txnas Applications
+	store 0
+
+	// Must be created by us
+	load 0
+	app_params_get AppCreator
+	assert
+	global CurrentApplicationAddress
+	==
+	assert
+
+	// Call function
+	itxn_begin
+
+	int appl
+	itxn_field TypeEnum
+
+	load 0
+	itxn_field ApplicationID
+
+	method "invoke()bool"
+	itxn_field ApplicationArgs
+
+	// Add all assets
+	int 0
+	store 1
+	txn NumAssets
+	store 2
+	add_asset:
+	load 1
+	load 2
+	==
+	bnz no_more_assets
+
+	// Add Asset
+	load 1
+	txnas Assets
+	itxn_field Assets
+
+	load 1
+	int 1
+	+
+	store 1
+	b add_asset
+	no_more_assets:
+
+	load 0
+	app_params_get AppAddress
+	assert
+	itxn_field RekeyTo
+
+	itxn_submit
+
+	// Check we've been rekeyed back to our own account
+	global CurrentApplicationAddress
+	acct_params_get AcctAuthAddr
+	assert
+	global ZeroAddress
+	==
+	assert
+
+	int 1
+	callsub log_bool
+
+	// Success
+	int 1
+	return
+
+// Propose
+// [ * | -1: appl | 0: appl | * ]
+method_propose:
+	// Must contain an application ID
+	txn ApplicationID
+	assert
+
+	// Preceeding transaction
+	txn GroupIndex
+	int 1
+	-
+	store 0
+
+	// appl transaction
+	load 0
+	gtxns TypeEnum
+	int appl
+	==
+	assert
+
+	// new deployment
+	load 0
+	gtxns ApplicationID
+	!
+	assert
+
+	// noop
+	load 0
+	gtxns OnCompletion
+	int NoOp
+	==
+	assert
+
+	// TODO: Some sort of validation on proposed app
+	load 0
+	gtxns CreatedApplicationID
+	app_params_get AppApprovalProgram
+	assert
+	extract 0 5
+	byte 0x0620020100
+	==
+	assert
+
+	// TODO: Some sort of validation on proposed app
+	load 0
+	gtxns CreatedApplicationID
+	app_params_get AppClearStateProgram
+	assert
+	pop
+
+	// Set `proposal_{app_id}_for` to global state
+	byte "proposal_"
+	load 0
+	gaids
+	itob
+	concat
+	byte "_for"
+	concat
+	int 0
+	app_global_put
+
+	// Set `proposal_{app_id}_against` to global state
+	byte "proposal_"
+	load 0
+	gaids
+	itob
+	concat
+	byte "_against"
+	concat
+	int 0
+	app_global_put
+
+	byte 0x151f7c75
+	load 0
+	gaids
+	itob
+	concat
+	log
+
+	// Success
+	int 1
+	return
+
+// Vote
+// TODO: There needs to be a real voting process, right now the vote just
+// allows or disallows the launch of the new proposal
+method_vote:
+	// Must contain and application ID
+	txn ApplicationID
+	assert
+
+	// Make sure global `proposal_{app_id}` state exists
+	int 0
+	byte "proposal_"
+	txna ApplicationArgs 1
+	btoi
+	txnas Applications
+	itob
+	concat
+	byte "_for"
+	concat
+	store 0
+	load 0
+	app_global_get_ex
+	assert
+	store 1 // Current votes
+
+	// Check they hold the amount they're voting for
+	txn Sender
+	txn ApplicationArgs 2
+	btoi
+	txnas Assets
+	asset_holding_get AssetBalance
+	assert
+	txna ApplicationArgs 3
+	btoi
+	>=
+	assert
+
+	// Set `proposal_{app_id}` state
+	load 0
+	txna ApplicationArgs 3
+	btoi
+	app_global_put
+
+	int 1
+	callsub log_bool
+
+	// Success
+	int 1
+	return
+
+// Activate Proposal
+method_activate:
+	// Must contain an application ID
+	txn ApplicationID
+	assert
+
+	// Get application ID
+	txna ApplicationArgs 1
+	btoi
+	txnas Applications
+	store 0
+
+	// Application must have proposal and be non-zero
+	int 0
+	byte "proposal_"
+	load 0
+	itob
+	concat
+	byte "_for"
+	concat
+	app_global_get_ex
+	assert
+	int 0
+	>
+	assert
+
+	// Deploy copy of proposal
+	itxn_begin
+
+	int appl
+	itxn_field TypeEnum
+
+	method "deploy()bool"
+	itxn_field ApplicationArgs
+
+	load 0
+	app_params_get AppApprovalProgram
+	assert
+	itxn_field ApprovalProgram
+
+	load 0
+	app_params_get AppClearStateProgram
+	assert
+	itxn_field ClearStateProgram
+
+	load 0
+	app_params_get AppGlobalNumUint
+	assert
+	itxn_field GlobalNumUint
+
+	load 0
+	app_params_get AppGlobalNumByteSlice
+	assert
+	itxn_field GlobalNumByteSlice
+
+	load 0
+	app_params_get AppLocalNumUint
+	assert
+	itxn_field LocalNumUint
+
+	load 0
+	app_params_get AppLocalNumByteSlice
+	assert
+	itxn_field LocalNumByteSlice
+
+	int 0
+	itxn_field Fee
+
+	itxn_submit
+
+	// Log new application ID
+	byte 0x151f7c75
+	itxn CreatedApplicationID
+	itob
+	concat
+	log
+
+	// Success
+	int 1
+	return
+
+// Deploy
+method_deploy:
+	// Must not have an application ID
+	txn ApplicationID
+	!
+	assert
+
+	// Set an uninitialised flag
+	byte "uninitialised"
+	int 1
+	app_global_put
+
+	int 1
+	callsub log_bool
+
+	// Success
+	int 1
+	return
+
+// Initialise
+method_initialise:
+	// Must contain an application ID
+	txn ApplicationID
+	assert
+
+	// Application must be uninitialised
+	byte "uninitialised"
+	app_global_get
+	assert
+
+	// Opt into asset
+	itxn_begin
+
+	int axfer
+	itxn_field TypeEnum
+
+	global CurrentApplicationAddress
+	itxn_field AssetReceiver
+
+	txna ApplicationArgs 1
+	btoi
+	txnas Assets
+	itxn_field XferAsset
+
+	int 0
+	itxn_field Fee
+
+	itxn_submit
+
+	// Set asset ID
+	byte "asset_id"
+	txna ApplicationArgs 1
+	btoi
+	txnas Assets
+	app_global_put
+
+	// Remove the uninitialised flag
+	byte "uninitialised"
+	app_global_del
+
+	int 1
+	callsub log_bool
+
+	// Success
+	int 1
+	return
+
+// Destroy
+method_destroy:
+	// Must contain an application ID
+	txn ApplicationID
+	assert
+
+	// Must be a delete call
+	txn OnCompletion
+	int DeleteApplication
+	==
+	assert
+
+	int 1
+	callsub log_bool
+
+	// Success
+	int 1
+	return
+
+/////////////////
+// Subroutines //
+/////////////////
+
+// Log True
+log_bool:
+	byte 0x151f7c75
+	byte 0x00
+	int 0
+	uncover 3
+	setbit
+	concat
+	log
+	retsub
+
