@@ -2,6 +2,16 @@
 
 This repository contains an example DAO implementation for the Algorand blockchain. An interesting feature of this implementation is that it allows for extending the functionality of the DAO by means of proposals.
 
+## Quick Start
+
+```sh
+# Launch a local sandbox instance before continuing.
+./sandbox up dev -v
+
+# Run the complete test.sh file
+./test.sh
+```
+
 ## The Basics
 
 At its core, the smart contract is deployed by whoever wants to create a DAO. This can be an individual or a multisig, however this is just for the setup. Eventually any permissions the creator had are relinquished and given to the members of the DAO.
