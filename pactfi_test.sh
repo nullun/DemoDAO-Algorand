@@ -18,7 +18,7 @@ APP_ID=$(${GOAL} app method \
 	--from ${ADDR} \
 	--approval-prog approval.teal \
 	--clear-prog clear.teal \
-	--global-byteslices 0 --global-ints 3 \
+	--global-byteslices 0 --global-ints 5 \
 	--local-byteslices 0 --local-ints 0 \
 	--arg '"Test DAO"' \
 	| grep 'Created app with app index' \
@@ -91,17 +91,17 @@ ASSET_2=$(${GOAL} asset create \
   | tr -d '\r')
 
 # Setup PactFi Liquidity Pool
-cat example_functionality/pactfi_pool_contract_template.teal | sed "s/{ASSET_1}/${ASSET_1}/g" | sed "s/{ASSET_2}/${ASSET_2}/g" > pool_approval.teal
+cat example_functionality/pactfi_pool_contract_template.teal | sed "s/{ASSET_1}/${ASSET_1}/g" | sed "s/{ASSET_2}/${ASSET_2}/g" > example_functionality/pool_approval.teal
 
-${SB} copyTo pool_approval.teal
+${SB} copyTo example_functionality/pool_approval.teal
 ${SB} copyTo example_functionality/pool_clear.teal
-rm pool_approval.teal
+rm example_functionality/pool_approval.teal
 
 # Deploy Pool
 POOL_ID=$(${GOAL} app create \
   --creator ${ADDR} \
   --approval-prog pool_approval.teal \
-  --clear-prog example_functionality/pool_clear.teal \
+  --clear-prog pool_clear.teal \
   --global-byteslices 1 --global-ints 4 \
   --local-byteslices 0 --local-ints 0 \
   --foreign-asset ${ASSET_1} \
@@ -171,13 +171,13 @@ ${GOAL} asset send \
   --from ${ADDR} \
   --to ${POOL_ADDR} \
   --assetid ${ASSET_1} \
-  --amount 100000000 \
+  --amount 1000000000 \
   -o 1_a1_in.txn
 ${GOAL} asset send \
   --from ${ADDR} \
   --to ${POOL_ADDR} \
   --assetid ${ASSET_2} \
-  --amount 100000000 \
+  --amount 1000000000 \
   -o 2_a2_in.txn
 ${GOAL} app call \
   --from ${ADDR} \
@@ -195,7 +195,7 @@ ${SB} copyFrom 2_a2_in.txn
 ${SB} copyFrom 3_addliq.txn
 cat 0_optin.txn 1_a1_in.txn 2_a2_in.txn 3_addliq.txn > addliq.ctxn
 ${SB} copyTo addliq.ctxn
-rm 0_optin.txn 1_a1_in.txn 2_a2_in.txn 3_addliq.txn
+rm 0_optin.txn 1_a1_in.txn 2_a2_in.txn 3_addliq.txn addliq.ctxn
 ${GOAL} clerk group -i addliq.ctxn -o addliq.gtxn
 ${GOAL} clerk sign -i addliq.gtxn -o addliq.stxn
 ${GOAL} clerk rawsend -f addliq.stxn
@@ -264,17 +264,24 @@ ${GOAL} app method \
 	--foreign-asset ${ASSET_1} \
 	--foreign-asset ${ASSET_2}
 
+# Provide 10.0 FUSDC to DAO Address
+${GOAL} asset send \
+  --from ${ADDR} \
+  --to ${APP_ADDR} \
+  --assetid ${ASSET_1} \
+  --amount 10000000
+
 # Deploy Proposed PactFi Swap Functionality
 FUNC_TEAL_APPROVAL="example_functionality/func_pactfi_swap.teal"
-FUNC_TEAL_CLEAR="example_functionality/clear.teal"
+FUNC_TEAL_CLEAR="example_functionality/func_pactfi_clear.teal"
 ${SB} copyTo ${FUNC_TEAL_APPROVAL}
 ${SB} copyTo ${FUNC_TEAL_CLEAR}
 ${GOAL} app method \
 	--method "deploy()void" \
 	--create \
 	--from ${ADDR} \
-	--approval-prog ${FUNC_TEAL_APPROVAL} \
-	--clear-prog ${FUNC_TEAL_CLEAR} \
+	--approval-prog func_pactfi_swap.teal \
+	--clear-prog func_pactfi_clear.teal \
 	--global-byteslices 1 --global-ints 4 \
 	--local-byteslices 0 --local-ints 0 \
 	-o appl.txn
@@ -319,17 +326,21 @@ ${GOAL} app method \
 	--app-id ${PROP_APP_ID} \
 	--on-completion "DeleteApplication"
 
-# Invoke
-${GOAL} app method \
-	--method "invoke(application)bool" \
-	--from ${ADDR} \
-	--app-id ${APP_ID} \
-	--on-completion "NoOp" \
-	--arg ${FUNC_APP_ID} \
-        --arg "int:1000000" \
-	--foreign-asset ${ASSET_1} \
-	--foreign-asset ${ASSET_2} \
-        --foreign-app ${POOL_ID}
+# Invoke Swap
+# 5 FUSDC for at least 4.8 FUSDT
+${GOAL} app call \
+  --from ${ADDR} \
+  --app-id ${APP_ID} \
+  --app-arg "b64:4s99AA==" \
+  --app-arg "int:1" \
+  --app-arg "int:5000000" \
+  --app-arg "int:4800000" \
+  --foreign-app ${FUNC_APP_ID} \
+  --foreign-app ${POOL_ID} \
+  --foreign-asset ${ASSET_1} \
+  --foreign-asset ${ASSET_2} \
+  --app-account ${POOL_ADDR} \
+  --fee 6000
 
 exit
 
