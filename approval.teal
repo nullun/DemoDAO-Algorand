@@ -1,4 +1,4 @@
-#pragma version 6
+#pragma version 7
 
 method "invoke(application)bool"
 txna ApplicationArgs 0
@@ -81,7 +81,7 @@ method_invoke:
 	add_asset:
 	load 1
 	load 2
-	==
+	>=
 	bnz no_more_assets
 
 	// Add Asset
@@ -95,6 +95,75 @@ method_invoke:
 	store 1
 	b add_asset
 	no_more_assets:
+
+        // Add all apps
+        int 2
+        store 1
+        txn NumApplications
+        store 2
+        add_app:
+        load 1
+        load 2
+        >
+        bnz no_more_apps
+
+        // Add App
+        load 1
+        txnas Applications
+        itxn_field Applications
+
+        load 1
+        int 1
+        +
+        store 1
+        b add_app
+        no_more_apps:
+
+        // Add all args
+        int 2
+        store 1
+        txn NumAppArgs
+        store 2
+        add_arg:
+        load 1
+        load 2
+        >=
+        bnz no_more_args
+
+        // Add arg
+        load 1
+        txnas ApplicationArgs
+        itxn_field ApplicationArgs
+
+        load 1
+        int 1
+        +
+        store 1
+        b add_arg
+        no_more_args:
+
+        // Add accounts
+        int 1
+        store 1
+        txn NumAccounts
+        store 2
+        add_account:
+        load 1
+        load 2
+        >
+        bnz no_more_accounts
+
+        // Add account
+        load 1
+        txnas Accounts
+        itxn_field Accounts
+
+        load 1
+        int 1
+        +
+        store 1
+        b add_account
+        no_more_accounts:
 
 	load 0
 	app_params_get AppAddress
@@ -156,8 +225,8 @@ method_propose:
 	gtxns CreatedApplicationID
 	app_params_get AppApprovalProgram
 	assert
-	extract 0 5
-	byte 0x0620020100
+	extract 1 4
+	byte 0x20020100
 	==
 	assert
 
