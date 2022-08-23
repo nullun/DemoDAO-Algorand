@@ -1,7 +1,7 @@
 // We can hopefully create some sort of signature with a predefined start and
 // end of the program that all functions should conform to. Making sure we can
 // always deploy, invoke, and delete functionality.
-#pragma version 6
+#pragma version 7
 
 // Deploy
 txn ApplicationID
@@ -57,7 +57,7 @@ invoke:
         txna Assets 0
         itxn_field XferAsset
 
-        txna ApplicationArgs 0
+        txna ApplicationArgs 1
         btoi
         itxn_field AssetAmount
 
@@ -90,7 +90,7 @@ invoke:
         byte "SWAP"
         itxn_field ApplicationArgs
 
-        txna ApplicationArgs 1
+        txna ApplicationArgs 2
         itxn_field ApplicationArgs
 
         int 0
