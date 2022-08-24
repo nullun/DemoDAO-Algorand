@@ -1,4 +1,4 @@
-# DemoDAO
+# ExtendableDAO
 
 This repository contains an example DAO implementation for the Algorand blockchain. An interesting feature of this implementation is that it allows for extending the functionality of the DAO by means of proposals.
 
